@@ -1609,16 +1609,11 @@ public class LuaToJava {
                 if (n == 0 && vb > 0) {
                     n = vb;
                 }
-                // c=0时可能需要用vc来计算实际偏移
-                if (offset == 0 && vc > 0) {
-                    // vc表示需要累积的元素数量
-                    offset = vc;
-                }
                 // c是直接偏移，不需要用vc
                 sb.append("                    {\n");
                 sb.append("                        int n = ").append(n).append(";\n");
                 sb.append("                        if (n == 0) n = L.getTop() - ").append(a + 1).append(";\n");
-                sb.append("                        // Lua 5.5: R[A][vC+i] := R[A+i], 从后往前设置\n");
+                sb.append("                        // Lua 5.5: R[A][vC+i] := R[A+i], c为偏移量\n");
                 int baseOffset = (offset > 0 ? offset : 1);
                 sb.append("                        int startIdx = ").append(baseOffset).append(" + n - 1;\n");
                 sb.append("                        for (int j = n; j >= 1; j--) {\n");
@@ -1626,8 +1621,6 @@ public class LuaToJava {
                 sb.append("                            L.setI(").append(a + 1).append(", startIdx);\n");
                 sb.append("                            startIdx--;\n");
                 sb.append("                        }\n");
-                // SETLIST会把R[A+1]到R[A+n]的值移到表中，所以需要清理这些栈位置
-                sb.append("                        L.setTop(").append(a + 1).append(");\n");
                 sb.append("                    }\n");
                 break;
             }
