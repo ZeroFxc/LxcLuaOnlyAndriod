@@ -149,6 +149,7 @@ class StringAutoComplete {
             "pb",
             "yyjson",
             "lfs",
+            "wasm3",
             "physics",
             "zip",
             "lpeglabel",

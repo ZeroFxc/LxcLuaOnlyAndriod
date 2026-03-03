@@ -620,6 +620,7 @@ class MyIdentifierAutoComplete {
             "return" to KeywordInfo("return", CompletionItemKind.Keyword, "返回值"),
             "goto" to KeywordInfo("goto", CompletionItemKind.Keyword, "跳转"),
             "switch" to KeywordInfo("switch", CompletionItemKind.Keyword, "分支选择"),
+            "match" to KeywordInfo("match", CompletionItemKind.Keyword, "模式匹配"),
             "case" to KeywordInfo("case", CompletionItemKind.Keyword, "分支条件"),
             "default" to KeywordInfo("default", CompletionItemKind.Keyword, "默认分支"),
             "when" to KeywordInfo("when", CompletionItemKind.Keyword, "条件触发"),
@@ -663,7 +664,7 @@ class MyIdentifierAutoComplete {
         val DEFAULT_LUA_KEYWORDS = arrayOf(
             "and", "break", "case", "continue", "default", "do", "else", "elseif",
             "end", "false", "for", "function", "goto", "if", "in", "local",
-            "nil", "not", "or", "repeat", "return", "switch", "then", "true",
+            "nil", "not", "or", "repeat", "return", "switch", "match", "then", "true",
             "until", "while","when", "print", "async", "await",
             // OOP 面向对象关键字
             "class", "extends", "implements", "interface", "new",

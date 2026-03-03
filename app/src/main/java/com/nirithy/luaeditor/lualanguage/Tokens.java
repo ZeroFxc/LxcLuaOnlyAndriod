@@ -66,6 +66,7 @@ public enum Tokens {
     LBRACE,
     RBRACE,
     SWITCH,
+    MATCH,
     CONTINUE,
     COMMAND,
     CASE,

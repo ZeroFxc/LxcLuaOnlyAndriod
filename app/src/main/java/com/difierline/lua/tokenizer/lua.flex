@@ -228,6 +228,7 @@ Number = {DecNumber} | {HexNumber} | {BinNumber}
   "return"                  { return RETURN; }
   "switch"                  { return SWITCH; }
   "take"                    { return TAKE; }
+  "match"                   { return MATCH; }
   "then"                    { return THEN; }
   "true"                    { return TRUE; }
   "try"                     { return TRY; }

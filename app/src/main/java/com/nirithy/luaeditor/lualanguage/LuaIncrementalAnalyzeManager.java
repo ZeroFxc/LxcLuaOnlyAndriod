@@ -876,6 +876,7 @@ public class LuaIncrementalAnalyzeManager
                 case IMPORT:
                 case REQUIRE:
                 case SWITCH:
+                case MATCH:
                 case LAMBDA:
                 case CONTINUE:
                 case COMMAND:

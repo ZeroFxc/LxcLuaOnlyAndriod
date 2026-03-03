@@ -52,6 +52,7 @@ public enum LuaTokenTypes {
     RETURN,         // return
     SWITCH,         // switch
     TAKE,           // take
+    MATCH,          // match (模式匹配)
     THEN,           // then
     TRUE,           // true
     TRY,            // try
