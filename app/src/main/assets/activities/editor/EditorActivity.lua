@@ -188,33 +188,6 @@ function onCreateOptionsMenu(menu)
     MyToast(path and res.string.compiled_successfully .. ": " .. path or res.string.compilation_failed .. ": " .. str)
     tree.refresh(FileUtil.getParent(PathUtil.this_file))
   end
-  menu0.add(res.string.compilationpng).onMenuItemClick = function()
-    EditorUtil.save()
-    local success, result = pcall(function()
-      local func, compile_error = loadfile(PathUtil.this_file)
-      if not func then
-        return nil, compile_error
-      end
-      local success, binary_data = pcall(string.dump, func, true)
-      if not success then
-        return nil, binary_data
-      end
-      local png_data = string.data2png(binary_data)
-      local png_path = string.gsub(PathUtil.this_file, "%.lua$", ".png")
-      local file = io.open(png_path, "wb")
-      if not file then
-        return nil, "无法创建PNG文件"
-      end
-      file:write(png_data)
-      file:close()
-      
-      return png_path
-    end)
-    MyToast(success and res.string.compiled_successfully .. ": " .. result or res.string.compilation_failed .. ": " .. tostring(result))
-    if success and result then
-      tree.refresh(FileUtil.getParent(result))
-    end
-  end
   local menu1 = menu.addSubMenu(res.string.code .. "…")
   menu1.add(res.string.format).onMenuItemClick = function()
     EditView.format()

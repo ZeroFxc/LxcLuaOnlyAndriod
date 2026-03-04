@@ -383,10 +383,10 @@ public class LuaActivity extends AppCompatActivity
 
       if (!new File(luaDir + "/manifest.json").exists()) {
         luaLpath =
-            (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/lua/?.png;" + luaDir + "/?/manifest.json;" + luaDir + "/?.png;") + luaLpath;
+            (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/?/manifest.json;") + luaLpath;
       } else {
         luaLpath =
-            (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/?/init.lua;" + luaDir + "/?.png;") + luaLpath;
+            (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/?/init.lua;") + luaLpath;
       }
       initLua();
 
@@ -1220,7 +1220,7 @@ public class LuaActivity extends AppCompatActivity
       
       // 检查文件是否已经存在
       File f = new File(fullPath);
-      if (!f.exists() && !fullPath.endsWith(".lua") && !fullPath.endsWith(".luac") && !fullPath.endsWith(".png")) {
+      if (!f.exists() && !fullPath.endsWith(".lua") && !fullPath.endsWith(".luac")) {
         // 先尝试.lua后缀
         String luaPath = fullPath + ".lua";
         if (new File(luaPath).exists()) {
@@ -1231,14 +1231,8 @@ public class LuaActivity extends AppCompatActivity
           if (new File(luacPath).exists()) {
             fullPath = luacPath;
           } else {
-            // 再尝试.png后缀
-            String pngPath = fullPath + ".png";
-            if (new File(pngPath).exists()) {
-              fullPath = pngPath;
-            } else {
-              // 都不存在，默认添加.lua后缀
-              fullPath += ".lua";
-            }
+            // 都不存在，默认添加.lua后缀
+            fullPath += ".lua";
           }
         }
       }
@@ -1289,7 +1283,7 @@ public class LuaActivity extends AppCompatActivity
     if (path.charAt(0) != '/') path = luaDir + "/" + path;
     File f = new File(path);
     if (f.isDirectory() && new File(path + "/main.lua").exists()) path += "/main.lua";
-    else if ((f.isDirectory() || !f.exists()) && !path.endsWith(".lua") && !path.endsWith(".luac") && !path.endsWith(".png")) {
+    else if ((f.isDirectory() || !f.exists()) && !path.endsWith(".lua") && !path.endsWith(".luac")) {
       // 先尝试.lua后缀
       String luaPath = path + ".lua";
       if (new File(luaPath).exists()) {
@@ -1300,14 +1294,8 @@ public class LuaActivity extends AppCompatActivity
         if (new File(luacPath).exists()) {
           path = luacPath;
         } else {
-          // 再尝试.png后缀
-          String pngPath = path + ".png";
-          if (new File(pngPath).exists()) {
-            path = pngPath;
-          } else {
-            // 都不存在，默认添加.lua后缀
-            path += ".lua";
-          }
+          // 都不存在，默认添加.lua后缀
+          path += ".lua";
         }
       }
     }
@@ -1368,7 +1356,7 @@ public class LuaActivity extends AppCompatActivity
     if (path.charAt(0) != '/') path = luaDir + "/" + path;
     File f = new File(path);
     if (f.isDirectory() && new File(path + "/main.lua").exists()) path += "/main.lua";
-    else if ((f.isDirectory() || !f.exists()) && !path.endsWith(".lua") && !path.endsWith(".luac") && !path.endsWith(".png")) {
+    else if ((f.isDirectory() || !f.exists()) && !path.endsWith(".lua") && !path.endsWith(".luac")) {
       // 先尝试.lua后缀
       String luaPath = path + ".lua";
       if (new File(luaPath).exists()) {
@@ -1379,14 +1367,8 @@ public class LuaActivity extends AppCompatActivity
         if (new File(luacPath).exists()) {
           path = luacPath;
         } else {
-          // 再尝试.png后缀
-          String pngPath = path + ".png";
-          if (new File(pngPath).exists()) {
-            path = pngPath;
-          } else {
-            // 都不存在，默认添加.lua后缀
-            path += ".lua";
-          }
+          // 都不存在，默认添加.lua后缀
+          path += ".lua";
         }
       }
     }

@@ -334,9 +334,9 @@ public class LuaService extends Service implements LuaContext,LuaBroadcastReceiv
 			luaDir = intent.getStringExtra("luaDir");
 			
 			if (!new File(luaDir + "/manifest.json").exists()) {
-     		luaLpath = (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/lua/?.png;" + luaDir + "/?/manifest.json;" + luaDir + "/?.png;") + luaLpath;
+     		luaLpath = (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/?/manifest.json;") + luaLpath;
 			} else {
-	    		luaLpath = (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/lua/?.png;" + luaDir + "/?/init.lua;" + luaDir + "/?.png;") + luaLpath;
+	    		luaLpath = (luaDir + "/?.lua;" + luaDir + "/?.luac;" + luaDir + "/lua/?.lua;" + luaDir + "/lua/?.luac;" + luaDir + "/?/init.lua;") + luaLpath;
 			}
         
 			Uri uri=intent.getData();

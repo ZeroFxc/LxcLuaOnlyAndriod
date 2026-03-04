@@ -83,12 +83,12 @@ public final class AutoCompletePackages {
                     "searchers", "searchpath", "seeall"));
             put("string", Arrays.asList(
              // 原有
-             "byte", "char", "data", "data2png", "dump", "file", "file2png", "find", "format",
-             "gfind", "gmatch", "gsub", "len", "lower", "match", "png2data", "png2file",
+             "byte", "char", "dump", "file",  "find", "format",
+             "gfind", "gmatch", "gsub", "len", "lower", "match", 
              "rep", "reverse", "sub", "upper",
              // 新增（上面缺少的）
              "aes_decrypt", "aes_encrypt", "contains", "crc32", "endswith", "escape",
-             "fromhex", "hex", "imageresize", "ltrim", "pack", "packsize", "rtrim",
+             "fromhex", "hex",  "ltrim", "pack", "packsize", "rtrim",
              "sha256", "split", "startswith", "trim", "unpack","envelop"
             ));
 

@@ -182,9 +182,9 @@ public class LuaApplication extends Application implements LuaContext {
         // 正确初始化 luaLpath
         File manifestFile = new File(luaMdDir, "manifest.json");
         if (!manifestFile.exists()) {
-            luaLpath = luaMdDir + "/?.lua;" + luaMdDir + "/?.luac;" + luaMdDir + "/lua/?.lua;" + luaMdDir + "/lua/?.luac;" + luaMdDir + "/lua/?.png;" + luaMdDir + "/?/manifest.json;" + luaMdDir + "/?.png;";
+            luaLpath = luaMdDir + "/?.lua;" + luaMdDir + "/?.luac;" + luaMdDir + "/lua/?.lua;" + luaMdDir + "/lua/?.luac;" + luaMdDir + "/?/manifest.json;";
         } else {
-            luaLpath += luaMdDir + "/?.lua;" + luaMdDir + "/?.luac;" + luaMdDir + "/lua/?.lua;" + luaMdDir + "/lua/?.luac;" + luaMdDir + "/lua/?.png;" + luaMdDir + "/?/init.lua;" + luaMdDir + "/?.png;";
+            luaLpath += luaMdDir + "/?.lua;" + luaMdDir + "/?.luac;" + luaMdDir + "/lua/?.lua;" + luaMdDir + "/lua/?.luac;" + luaMdDir + "/?/init.lua;";
         }
     }
 
