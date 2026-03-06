@@ -644,17 +644,19 @@ void luaO_shuffleBlocks (CFFContext *ctx) {
 */
 int luaO_encodeState (int state, unsigned int seed) {
   /* 使用固定范围和与之互质的乘数 */
-  const int range = 30000;  /* 安全范围 */
-  const int prime = 7919;   /* 质数，与 range 互质 */
+  const int range = 32768;  /* 2的幂，适合XOR双射 */
+  const int prime = 7919;   /* 质数 */
   
   /* 使用种子生成偏移量 */
   int offset = (int)(seed % range);
   
   /* 线性变换：(state * prime + offset) mod range */
-  /* 由于 prime 与 range 互质，这是一个置换（双射） */
   int encoded = ((state * prime) % range + offset) % range;
   if (encoded < 0) encoded += range;
   
+  /* XOR 混淆，由于 range 是 32768，0x5A5A 不会超出范围，形成完美双射 */
+  encoded ^= 0x5A5A;
+
   return encoded;
 }
 
@@ -741,9 +743,9 @@ static int emitInstruction (CFFContext *ctx, Instruction inst) {
 */
 
 /* 虚假块数量（基于真实块数量的倍数） */
-#define BOGUS_BLOCK_RATIO  2  /* 每个真实块生成2个虚假块 */
-#define BOGUS_BLOCK_MIN_INSTS  3  /* 虚假块最少指令数 */
-#define BOGUS_BLOCK_MAX_INSTS  8  /* 虚假块最多指令数 */
+#define BOGUS_BLOCK_RATIO  4  /* 每个真实块生成4个虚假块 */
+#define BOGUS_BLOCK_MIN_INSTS  4  /* 虚假块最少指令数 */
+#define BOGUS_BLOCK_MAX_INSTS  12  /* 虚假块最多指令数 */
 
 /* 函数交织常量（在这里定义以便 luaO_generateDispatcher 使用） */
 #define NUM_FAKE_FUNCTIONS  3   /* 虚假函数数量 */
@@ -755,6 +757,9 @@ static int emitFakeFunction (CFFContext *ctx, int func_id, unsigned int *seed,
                               int *entry_jmp_pc);
 static int emitFakeFunctionBlocks (CFFContext *ctx, int func_id, unsigned int *seed,
                                     int entry_jmp_pc);
+
+static int emitJunkSequence(CFFContext *ctx);
+static Instruction generateBogusInstruction(CFFContext *ctx, unsigned int *seed);
 
 /* 二分查找分发器相关结构 */
 typedef struct StateBlock {
@@ -783,11 +788,7 @@ static int emitBinarySearch (CFFContext *ctx, StateBlock *sb, int low, int high,
 
     /* 混淆：在此处插入 NOP 是安全的 */
     if (ctx->obfuscate_flags & OBFUSCATE_RANDOM_NOP) {
-      int num_nops = 1 + (ctx->seed % 2);
-      for (int i = 0; i < num_nops; i++) {
-        NEXT_RAND(ctx->seed);
-        emitInstruction(ctx, luaO_createNOP(ctx->seed));
-      }
+      emitJunkSequence(ctx);
     }
     return 0;
   } else {
@@ -808,11 +809,7 @@ static int emitBinarySearch (CFFContext *ctx, StateBlock *sb, int low, int high,
 
     /* 混淆：在此处插入 NOP 是安全的，因为上面是无条件跳转 */
     if (ctx->obfuscate_flags & OBFUSCATE_RANDOM_NOP) {
-      int num_nops = 1 + (ctx->seed % 2);
-      for (int i = 0; i < num_nops; i++) {
-        NEXT_RAND(ctx->seed);
-        emitInstruction(ctx, luaO_createNOP(ctx->seed));
-      }
+      emitJunkSequence(ctx);
     }
     
     /* 跳转到右半部分 */
@@ -821,11 +818,7 @@ static int emitBinarySearch (CFFContext *ctx, StateBlock *sb, int low, int high,
 
     /* 混淆：在此处插入 NOP 是安全的 */
     if (ctx->obfuscate_flags & OBFUSCATE_RANDOM_NOP) {
-      int num_nops = 1 + (ctx->seed % 2);
-      for (int i = 0; i < num_nops; i++) {
-        NEXT_RAND(ctx->seed);
-        emitInstruction(ctx, luaO_createNOP(ctx->seed));
-      }
+      emitJunkSequence(ctx);
     }
     
     /* 生成左半部分代码 */
@@ -843,9 +836,9 @@ static int emitBinarySearch (CFFContext *ctx, StateBlock *sb, int low, int high,
 }
 
 /* 虚假块数量（基于真实块数量的倍数） */
-#define BOGUS_BLOCK_RATIO  2  /* 每个真实块生成2个虚假块 */
-#define BOGUS_BLOCK_MIN_INSTS  3  /* 虚假块最少指令数 */
-#define BOGUS_BLOCK_MAX_INSTS  8  /* 虚假块最多指令数 */
+#define BOGUS_BLOCK_RATIO  4  /* 每个真实块生成4个虚假块 */
+#define BOGUS_BLOCK_MIN_INSTS  4  /* 虚假块最少指令数 */
+#define BOGUS_BLOCK_MAX_INSTS  12  /* 虚假块最多指令数 */
 
 /* 生成一条随机的虚假指令 */
 static Instruction generateBogusInstruction (CFFContext *ctx, unsigned int *seed) {
@@ -876,8 +869,41 @@ static Instruction generateBogusInstruction (CFFContext *ctx, unsigned int *seed
     case 6: return CREATE_ABCk(OP_LEN, reg, (*seed % max_reg), 0, 0);
     case 7: return CREATE_ABCk(OP_SHLI, reg, (*seed % max_reg), int2sC(value % 31), 0);
     case 8: return CREATE_ABCk(OP_BNOT, reg, (*seed % max_reg), 0, 0);
+    case 9: return CREATE_ABCk(OP_BAND, reg, (*seed % max_reg), ((*seed >> 4) % max_reg), 0);
+    case 10: return CREATE_ABCk(OP_BOR, reg, (*seed % max_reg), ((*seed >> 4) % max_reg), 0);
+    case 11: return CREATE_ABCk(OP_BXOR, reg, (*seed % max_reg), ((*seed >> 4) % max_reg), 0);
     default: return CREATE_ABx(OP_LOADI, reg, (*seed % 2000) + OFFSET_sBx);
   }
+}
+
+/* Emit a sequence of junk instructions (花指令) guarded by an OP_JMP */
+static int emitJunkSequence(CFFContext *ctx) {
+    int num_nops = 2 + (ctx->seed % 5);
+    Instruction jmp_over_junk = CREATE_sJ(OP_JMP, num_nops + OFFSET_sJ, 0);
+    if (emitInstruction(ctx, jmp_over_junk) < 0) return -1;
+    for (int i = 0; i < num_nops; i++) {
+        NEXT_RAND(ctx->seed);
+        /* Use bogus instructions, random NOPs, or short forward jumps to confuse disassemblers */
+        int r = ctx->seed % 3;
+        if (r == 0) {
+            emitInstruction(ctx, generateBogusInstruction(ctx, &ctx->seed));
+        } else if (r == 1) {
+            emitInstruction(ctx, luaO_createNOP(ctx->seed));
+        } else {
+            int skip = (num_nops - i - 1);
+            if (skip > 0) {
+                emitInstruction(ctx, CREATE_sJ(OP_JMP, skip + OFFSET_sJ, 0));
+                i += skip; /* Advance i since we skipped those */
+                for(int j=0; j<skip; j++) {
+                    NEXT_RAND(ctx->seed);
+                    emitInstruction(ctx, luaO_createNOP(ctx->seed));
+                }
+            } else {
+                emitInstruction(ctx, luaO_createNOP(ctx->seed));
+            }
+        }
+    }
+    return 0;
 }
 
 /*
@@ -889,18 +915,62 @@ static Instruction generateBogusInstruction (CFFContext *ctx, unsigned int *seed
 */
 static int emitStateTransition (CFFContext *ctx, int reg, int next_state) {
   if (ctx->obfuscate_flags & OBFUSCATE_STATE_ENCODE) {
-    /* 更加复杂的转换：使用加法混淆 */
     NEXT_RAND(ctx->seed);
-    int delta = (ctx->seed % 100) - 50; /* -50 ~ 49 */
-    if (emitInstruction(ctx, CREATE_ABx(OP_LOADI, reg, (next_state - delta) + OFFSET_sBx)) < 0) return -1;
-    if (emitInstruction(ctx, CREATE_ABCk(OP_ADDI, reg, reg, int2sC(delta), 0)) < 0) return -1;
-    return 2;
+    int style = ctx->seed % 3;
+    if (style == 0) {
+      /* LOADI + ADDI */
+      int delta = (ctx->seed % 100) - 50; /* -50 ~ 49 */
+      if (emitInstruction(ctx, CREATE_ABx(OP_LOADI, reg, (next_state - delta) + OFFSET_sBx)) < 0) return -1;
+      if (emitInstruction(ctx, CREATE_ABCk(OP_ADDI, reg, reg, int2sC(delta), 0)) < 0) return -1;
+      return 2;
+    } else if (style == 1) {
+      /* LOADI + BXOR */
+      int mask = (ctx->seed % 0x7FFF);
+      if (emitInstruction(ctx, CREATE_ABx(OP_LOADI, reg, (next_state ^ mask) + OFFSET_sBx)) < 0) return -1;
+      /* 假设我们把 mask 加载到临时寄存器，但这里为了简单起见，如果可以直接用常量或者寄存器操作 */
+      /* 但 Opcodes 里 BXORK 是带常量索引的，我们最好把 mask 加载到 ctx->opaque_reg1 */
+      int tmp_reg = ctx->opaque_reg1;
+      if (tmp_reg == 0) tmp_reg = reg; /* 如果没有 opaque_reg1 就回退 */
+
+      if (tmp_reg != reg) {
+          if (emitInstruction(ctx, CREATE_ABx(OP_LOADI, tmp_reg, mask + OFFSET_sBx)) < 0) return -1;
+          if (emitInstruction(ctx, CREATE_ABCk(OP_BXOR, reg, reg, tmp_reg, 0)) < 0) return -1;
+          return 3;
+      } else {
+          /* 退化到原版 ADDI */
+          int delta = (ctx->seed % 100) - 50;
+          if (emitInstruction(ctx, CREATE_ABx(OP_LOADI, reg, (next_state - delta) + OFFSET_sBx)) < 0) return -1;
+          if (emitInstruction(ctx, CREATE_ABCk(OP_ADDI, reg, reg, int2sC(delta), 0)) < 0) return -1;
+          return 2;
+      }
+    } else {
+      /* LOADI + SUB (Actually SUBI doesn't exist directly, use SUB from temp or another ADDI variant) */
+      /* SUB: A B C. A = B - C. Or we just use ADDI with negative delta but represent differently conceptually.
+         Let's just use BNOT for some variation */
+      if (emitInstruction(ctx, CREATE_ABx(OP_LOADI, reg, (~next_state) + OFFSET_sBx)) < 0) return -1;
+      if (emitInstruction(ctx, CREATE_ABCk(OP_BNOT, reg, reg, 0, 0)) < 0) return -1;
+      return 2;
+    }
   } else {
     if (emitInstruction(ctx, CREATE_ABx(OP_LOADI, reg, next_state + OFFSET_sBx)) < 0) return -1;
     return 1;
   }
 }
 
+
+static int emitDeadJunk(CFFContext *ctx) {
+    if (!(ctx->obfuscate_flags & OBFUSCATE_RANDOM_NOP)) return 0;
+    int num_nops = 1 + (ctx->seed % 4);
+    for (int i = 0; i < num_nops; i++) {
+        NEXT_RAND(ctx->seed);
+        if (ctx->seed % 2 == 0) {
+            emitInstruction(ctx, generateBogusInstruction(ctx, &ctx->seed));
+        } else {
+            emitInstruction(ctx, luaO_createNOP(ctx->seed));
+        }
+    }
+    return 0;
+}
 
 /* 生成一个虚假基本块的代码 */
 static int emitBogusBlock (CFFContext *ctx, int bogus_state, unsigned int *seed) {
@@ -962,6 +1032,8 @@ static int luaO_emitBlocksAndStubs (CFFContext *ctx, int *all_block_jmp_pcs, int
       loop_stub_pc = ctx->new_code_size;
       emitStateTransition(ctx, state_reg, state_body);
       emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
       SETARG_sJ(ctx->new_code[skip_stub_pc], ctx->new_code_size - skip_stub_pc - 1);
     }
     
@@ -1004,10 +1076,14 @@ static int luaO_emitBlocksAndStubs (CFFContext *ctx, int *all_block_jmp_pcs, int
       int skip_then_pc = emitInstruction(ctx, CREATE_sJ(OP_JMP, 0, 0)); /* 跳过 then 分支 */
       emitStateTransition(ctx, state_reg, state_then);
       emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
       SETARG_sJ(ctx->new_code[skip_then_pc], ctx->new_code_size - skip_then_pc - 1);
       
       emitStateTransition(ctx, state_reg, state_else);
       emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
       
     } else if (last_op == OP_FORLOOP || last_op == OP_TFORLOOP) {
       Instruction loop_inst = f->code[last_pc];
@@ -1022,6 +1098,8 @@ static int luaO_emitBlocksAndStubs (CFFContext *ctx, int *all_block_jmp_pcs, int
       
       emitStateTransition(ctx, state_reg, state_next);
       emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
       
     } else if (last_op == OP_TFORPREP) {
       int a = GETARG_A(f->code[last_pc]);
@@ -1030,6 +1108,8 @@ static int luaO_emitBlocksAndStubs (CFFContext *ctx, int *all_block_jmp_pcs, int
       emitInstruction(ctx, CREATE_ABCk(OP_TBC, a + 3, 0, 0, 0));
       emitStateTransition(ctx, state_reg, state_call);
       emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
 
     } else if (last_op == OP_FORPREP) {
       Instruction prep_inst = f->code[last_pc];
@@ -1043,11 +1123,15 @@ static int luaO_emitBlocksAndStubs (CFFContext *ctx, int *all_block_jmp_pcs, int
       emitInstruction(ctx, prep_inst);
       emitStateTransition(ctx, state_reg, state_enter);
       emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
       
       int skip_jump_pc = emitInstruction(ctx, CREATE_sJ(OP_JMP, 0, 0));
       int skip_stub_start = ctx->new_code_size;
       emitStateTransition(ctx, state_reg, state_skip);
       emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
       
       SETARG_sJ(ctx->new_code[skip_jump_pc], ctx->new_code_size - skip_jump_pc - 1);
       SETARG_Bx(ctx->new_code[prep_pc], skip_stub_start - prep_pc - 1);
@@ -1059,6 +1143,8 @@ static int luaO_emitBlocksAndStubs (CFFContext *ctx, int *all_block_jmp_pcs, int
         if (ctx->obfuscate_flags & OBFUSCATE_STATE_ENCODE) next_state = luaO_encodeState(next_state, ctx->seed);
         emitStateTransition(ctx, state_reg, next_state);
         emitInstruction(ctx, CREATE_sJ(OP_JMP, (ctx->dispatcher_pc - ctx->new_code_size - 1) + OFFSET_sJ, 0));
+      emitDeadJunk(ctx);
+      emitDeadJunk(ctx);
       }
     }
   }
@@ -1299,11 +1385,7 @@ int luaO_generateDispatcher (CFFContext *ctx) {
 
     /* 混淆：在此处插入 NOP 是安全的 */
     if (ctx->obfuscate_flags & OBFUSCATE_RANDOM_NOP) {
-      int num_nops = 1 + (ctx->seed % 2);
-      for (int k = 0; k < num_nops; k++) {
-        NEXT_RAND(ctx->seed);
-        emitInstruction(ctx, luaO_createNOP(ctx->seed));
-      }
+      emitJunkSequence(ctx);
     }
   }
   
@@ -1336,11 +1418,7 @@ int luaO_generateDispatcher (CFFContext *ctx) {
 
       /* 混淆：在此处插入 NOP 是安全的 */
       if (ctx->obfuscate_flags & OBFUSCATE_RANDOM_NOP) {
-        int num_nops = 1 + (ctx->seed % 2);
-        for (int k = 0; k < num_nops; k++) {
-          NEXT_RAND(ctx->seed);
-          emitInstruction(ctx, luaO_createNOP(ctx->seed));
-        }
+        emitJunkSequence(ctx);
       }
     }
   }
@@ -2969,6 +3047,10 @@ static VMInstruction encryptVMInstruction (VMInstruction inst, uint64_t key, int
   uint64_t modified_key = key ^ ((uint64_t)pc * 0x9E3779B97F4A7C15ULL);
   encrypted ^= modified_key;
   
+  /* 第三轮：常数加法和异或 */
+  encrypted += 0x1234567890ABCDEFULL;
+  encrypted ^= 0xDEADBEEFCAFEBABEULL;
+
   return encrypted;
 }
 
@@ -2983,6 +3065,10 @@ static VMInstruction encryptVMInstruction (VMInstruction inst, uint64_t key, int
 static VMInstruction decryptVMInstruction (VMInstruction inst, uint64_t key, int pc) {
   uint64_t decrypted = inst;
   
+  /* 逆向第三轮 */
+  decrypted ^= 0xDEADBEEFCAFEBABEULL;
+  decrypted -= 0x1234567890ABCDEFULL;
+
   /* 逆向第二轮XOR */
   uint64_t modified_key = key ^ ((uint64_t)pc * 0x9E3779B97F4A7C15ULL);
   decrypted ^= modified_key;
@@ -3105,14 +3191,66 @@ static int floatforloop (lua_State *L, StkId ra) {
 */
 static int convertLuaInstToVM (VMProtectContext *ctx, Instruction inst, int pc) {
   OpCode lua_op = GET_OPCODE(inst);
+
+  /* 指令替换：将特定的数学/逻辑操作替换为其等价形式 */
+  /* 例如: a + b == a - (-b) */
+  /* 如果是 OP_ADD (但没有常量)，我们可以将其替换为某种混淆 */
+  /* 在这里我们做一些简单的混淆转换（仅在 VM 内部替换映射，以使得逆向更加困难）*/
+  /* 注意：因为这可能改变执行语义，我们在这里暂时不替换 opcode 本身，而是交由外部逻辑 */
+
   int vm_op = ctx->opcode_map[lua_op];
   int a = GETARG_A(inst);
+  int b = GETARG_B(inst);
+  int c = GETARG_C(inst);
+  int k = GETARG_k(inst);
   uint64_t vm_inst;
   enum OpMode mode = getOpMode(lua_op);
+
+  /* Instruction Substitution: Map ADD and SUB to custom obfuscated EXT1 and EXT2 */
+  if (lua_op == OP_ADD) {
+    if ((pc % 2) == 0) {
+      vm_op = VM_OP_EXT1;
+    }
+  } else if (lua_op == OP_SUB) {
+    if ((pc % 2) == 0) {
+      vm_op = VM_OP_EXT2;
+    }
+  } else if (lua_op == OP_MUL) {
+    if ((pc % 2) == 0) {
+      vm_op = VM_OP_EXT3;
+    }
+  } else if (lua_op == OP_BXOR) {
+    if ((pc % 2) == 0) {
+      vm_op = VM_OP_EXT4;
+    }
+  }
+
+  /* Number Obfuscation (Literal Obfuscation)
+  ** If it is OP_LOADI, we can split it. However, OP_LOADI takes sBx as argument.
+  ** We can emit two VM instructions to load it but it changes PC offsets.
+  ** Since JMPs refer to PC offsets, changing the number of emitted instructions
+  ** will break jump targets unless we rebuild the entire CFG.
+  **
+  ** So instead we keep the PC mapping 1:1, but we apply strong XOR encryption
+  ** below. To implement true instruction substitution without breaking JMPs,
+  ** we encode the substitution within the VM instruction payload if possible.
+  **
+  ** Let's modify the instruction's arguments directly for OP_ADD -> OP_SUB
+  ** actually, that's not easily possible because OP_SUB requires the second operand to be negative
+  ** which needs a runtime check. We will skip OP_ADD -> OP_SUB here due to register constraints.
+  */
+
   switch (mode) {
     case iABx:
     case iAsBx:
-      vm_inst = VM_MAKE_INST_BX(vm_op, a, (uint64_t)GETARG_Bx(inst));
+      if (lua_op == OP_LOADI || lua_op == OP_LOADF) {
+        /* Encrypt the literal integer/float with a constant */
+        int64_t original_bx = (int64_t)GETARG_Bx(inst);
+        int64_t obf_bx = original_bx ^ ((ctx->encrypt_key ^ pc) & 0xFFFFFFFF);
+        vm_inst = VM_MAKE_INST_BX(vm_op, a, (uint64_t)obf_bx);
+      } else {
+        vm_inst = VM_MAKE_INST_BX(vm_op, a, (uint64_t)GETARG_Bx(inst));
+      }
       break;
     case iAx:
       vm_inst = VM_MAKE_INST_BX(vm_op, 0, (uint64_t)GETARG_Ax(inst));
@@ -3121,10 +3259,11 @@ static int convertLuaInstToVM (VMProtectContext *ctx, Instruction inst, int pc) 
       vm_inst = VM_MAKE_INST_BX(vm_op, 0, (uint64_t)(GETARG_sJ(inst) + OFFSET_sJ));
       break;
     case ivABC:
-      vm_inst = VM_MAKE_INST(vm_op, a, GETARG_vB(inst), GETARG_vC(inst), GETARG_k(inst));
+      /* Not currently substituting ivABC but using original macro logic */
+      vm_inst = VM_MAKE_INST(vm_op, a, GETARG_vB(inst), GETARG_vC(inst), k);
       break;
     default:
-      vm_inst = VM_MAKE_INST(vm_op, a, GETARG_B(inst), GETARG_C(inst), GETARG_k(inst));
+      vm_inst = VM_MAKE_INST(vm_op, a, b, c, k);
       break;
   }
   VMInstruction encrypted = encryptVMInstruction(vm_inst, ctx->encrypt_key, pc);
@@ -3366,6 +3505,10 @@ void luaO_freeAllVMCode (lua_State *L) {
 static VMInstruction decryptVMInst (VMInstruction encrypted, uint64_t key, int pc) {
   uint64_t decrypted = encrypted;
   
+  /* 逆向第三轮 */
+  decrypted ^= 0xDEADBEEFCAFEBABEULL;
+  decrypted -= 0x1234567890ABCDEFULL;
+
   /* 逆向加密过程 */
   /* 第二轮XOR (逆向) */
   uint64_t modified_key = key ^ ((uint64_t)pc * 0x9E3779B97F4A7C15ULL);
@@ -3441,13 +3584,46 @@ int luaO_executeVM (lua_State *L, Proto *f) {
 
     if (lua_op < 0 || lua_op >= NUM_OPCODES) {
        if (vm_op == VM_OP_HALT) return 0;
-       ci->u.l.savedpc = (const Instruction *)(f->code + pc);
-       return 1;
+       if (vm_op == VM_OP_EXT1) {
+           TValue *rb = s2v(base + b); TValue *rc = s2v(base + c);
+           if (ttisinteger(rb) && ttisinteger(rc)) {
+               /* Obfuscated ADD: x + y == x - (~y) - 1 */
+               setivalue(s2v(base + a), intop(-, intop(-, ivalue(rb), ~ivalue(rc)), 1));
+               pc++; continue;
+           }
+           lua_op = OP_ADD;
+       } else if (vm_op == VM_OP_EXT2) {
+           TValue *rb = s2v(base + b); TValue *rc = s2v(base + c);
+           if (ttisinteger(rb) && ttisinteger(rc)) {
+               /* Obfuscated SUB: x - y == x + (~y) + 1 */
+               setivalue(s2v(base + a), intop(+, intop(+, ivalue(rb), ~ivalue(rc)), 1));
+               pc++; continue;
+           }
+           lua_op = OP_SUB;
+       } else if (vm_op == VM_OP_EXT3) {
+           lua_op = OP_MUL;
+       } else if (vm_op == VM_OP_EXT4) {
+           TValue *rb = s2v(base + b); TValue *rc = s2v(base + c);
+           if (ttisinteger(rb) && ttisinteger(rc)) {
+               /* Obfuscated BXOR: x ^ y == (x | y) - (x & y) */
+               setivalue(s2v(base + a), intop(-, intop(|, ivalue(rb), ivalue(rc)), intop(&, ivalue(rb), ivalue(rc))));
+               pc++; continue;
+           }
+           lua_op = OP_BXOR;
+       } else {
+           ci->u.l.savedpc = (const Instruction *)(f->code + pc);
+           return 1;
+       }
     }
 
     switch (lua_op) {
       case OP_MOVE: { setobjs2s(L, base + a, base + b); break; }
-      case OP_LOADI: { setivalue(s2v(base + a), (lua_Integer)(bx - OFFSET_sBx)); break; }
+      case OP_LOADI: {
+        /* Revert number obfuscation */
+        int64_t real_bx = bx ^ ((vm->encrypt_key ^ pc) & 0xFFFFFFFF);
+        setivalue(s2v(base + a), (lua_Integer)(real_bx - OFFSET_sBx));
+        break;
+      }
       case OP_LOADK: {
         if (bx >= 0 && bx < f->sizek) {
           TValue *rb = k + bx;
@@ -3470,7 +3646,11 @@ int luaO_executeVM (lua_State *L, Proto *f) {
         }
         break;
       }
-      case OP_LOADF: { setfltvalue(s2v(base + a), cast_num((lua_Integer)(bx - OFFSET_sBx))); break; }
+      case OP_LOADF: {
+        int64_t real_bx = bx ^ ((vm->encrypt_key ^ pc) & 0xFFFFFFFF);
+        setfltvalue(s2v(base + a), cast_num((lua_Integer)(real_bx - OFFSET_sBx)));
+        break;
+      }
       case OP_LOADKX: {
         pc++;
         if (pc < vm->size) {
