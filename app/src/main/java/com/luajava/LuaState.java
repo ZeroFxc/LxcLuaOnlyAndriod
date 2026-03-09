@@ -117,6 +117,9 @@ public class LuaState {
 
     private long luaState;
     private LuaJava luaJava;
+    
+    // 用于避免死锁的 ReentrantLock
+    private final java.util.concurrent.locks.ReentrantLock lock = new java.util.concurrent.locks.ReentrantLock();
 
     //private long stateId;
 
@@ -125,6 +128,37 @@ public class LuaState {
         luaJava = new LuaJava(this);
         //openLuajava(stateId);
         //this.stateId = luaState.getPeer();
+    }
+
+    /**
+     * 尝试获取锁，带超时
+     * @param timeoutMs 超时时间（毫秒）
+     * @return 是否成功获取锁
+     */
+    public boolean tryLock(long timeoutMs) {
+        try {
+            return lock.tryLock(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    /**
+     * 尝试立即获取锁（非阻塞）
+     * @return 是否成功获取锁
+     */
+    public boolean tryLockNoWait() {
+        return lock.tryLock();
+    }
+
+    /**
+     * 释放锁
+     */
+    public void unlock() {
+        if (lock.isHeldByCurrentThread()) {
+            lock.unlock();
+        }
     }
 
     /**
@@ -154,20 +188,49 @@ public class LuaState {
         if (luaState == 0) {
             return; // 已经关闭，防止double-free
         }
-        LuaStateFactory.removeLuaState(luaState);
-        _close(luaState);
-        this.luaState = 0;
-        javaObjectGcList.clear();
-        javaObjectMap.clear();
+        
+        // 先获取锁，确保没有其他线程正在使用 LuaState
+        lock.lock();
+        try {
+            LuaStateFactory.removeLuaState(luaState);
+            _close(luaState);
+            this.luaState = 0;
+            javaObjectGcList.clear();
+            javaObjectMap.clear();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
     protected void finalize() {
         Log.i("luaState", "finalize: " + luaState);
-        try {
-            close();
-        } catch (Exception e) {
-            System.err.println("Unable to release luaState " + luaState);
+        
+        // finalize 中不使用 synchronized，避免死锁
+        // 使用非阻塞方式尝试关闭
+        if (luaState == 0) {
+            return;
+        }
+        
+        // 使用 tryLock 避免死锁
+        if (tryLockNoWait()) {
+            try {
+                if (luaState != 0) {
+                    LuaStateFactory.removeLuaState(luaState);
+                    _close(luaState);
+                    luaState = 0;
+                    javaObjectGcList.clear();
+                    javaObjectMap.clear();
+                }
+            } catch (Exception e) {
+                Log.e("luaState", "Error in finalize for luaState " + luaState, e);
+            } finally {
+                unlock();
+            }
+        } else {
+            // 无法获取锁，记录警告
+            // 这不会造成内存泄漏，因为 LuaState 会在进程结束时被系统回收
+            Log.w("luaState", "Unable to acquire lock in finalize for luaState " + luaState);
         }
     }
 

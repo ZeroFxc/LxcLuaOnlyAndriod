@@ -195,19 +195,88 @@ public class LuaObject implements Serializable {
 		}
 	}
 
+	private volatile boolean isReleased = false;
+
+	/**
+	 * 手动释放 LuaObject 引用的 Lua 资源
+	 * 应该在不再使用 LuaObject 时调用此方法，而不是依赖 finalize()
+	 */
+	public void release() {
+		if (isReleased) {
+			return;
+		}
+		isReleased = true;
+		_release();
+	}
+
+	/**
+	 * 内部释放方法，使用 tryLock 避免死锁
+	 */
+	private void _release() {
+		if (ref == -1 || L == null) {
+			return;
+		}
+
+		// 检查 LuaState 是否已关闭
+		if (L.getPointer() == 0) {
+			ref = -1;
+			return;
+		}
+
+		// 使用 tryLock 避免死锁，最多等待 100ms
+		// 如果无法获取锁，则放弃释放（由 LuaState.close() 统一清理）
+		try {
+			if (L.tryLock(100)) {
+				try {
+					if (L.getPointer() != 0 && ref != -1) {
+						L.LunRef(LuaState.LUA_REGISTRYINDEX, ref);
+						ref = -1;
+					}
+				} finally {
+					L.unlock();
+				}
+			} else {
+				// 无法获取锁，放弃释放
+				// LuaState.close() 会清理所有引用
+				Log.w("LuaObject", "Unable to acquire lock for releasing object " + ref + ", will be cleaned by LuaState.close()");
+			}
+		} catch (Throwable e) {
+			Log.e("LuaObject", "Error releasing object " + ref, e);
+		}
+	}
+
 	@Override
 	protected void finalize() {
-		//Log.i("luaObject", "finalize: "+ref+";"+toString());
-		try {
-			synchronized (L) {
-				if (L.getPointer() != 0 && ref != -1) {
-					L.LunRef(LuaState.LUA_REGISTRYINDEX, ref);
-					ref = -1; // 标记为已释放，防止double-free
-				}
-			}
+		if (isReleased || ref == -1) {
+			return;
 		}
-		catch (Throwable e) {
-			System.err.println("Unable to release object " + ref);
+
+		// finalize 中不使用 synchronized，避免死锁
+		// 使用非阻塞方式尝试释放
+		try {
+			// 检查 LuaState 是否已关闭
+			if (L == null || L.getPointer() == 0) {
+				ref = -1;
+				return;
+			}
+
+			// 使用非阻塞方式尝试获取锁
+			if (L.tryLockNoWait()) {
+				try {
+					if (L.getPointer() != 0 && ref != -1) {
+						L.LunRef(LuaState.LUA_REGISTRYINDEX, ref);
+						ref = -1;
+					}
+				} finally {
+					L.unlock();
+				}
+			} else {
+				// 无法立即获取锁，放弃释放
+				// 这不会造成内存泄漏，因为 LuaState.close() 会清理所有引用
+				Log.w("LuaObject", "Unable to acquire lock in finalize for object " + ref);
+			}
+		} catch (Throwable e) {
+			Log.e("LuaObject", "Error in finalize for object " + ref, e);
 		}
 	}
 
