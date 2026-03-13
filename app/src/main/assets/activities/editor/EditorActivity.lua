@@ -24,7 +24,7 @@ EditorUtil = require "activities.editor.EditorUtil"
 FilesTabManager = require "activities.editor.FilesTabManager"
 fileTracker = require "activities.editor.FileTracker"
 
-luaproject, label = ...
+luaproject, label = ...;
 
 ProjectName = FileUtil.getName(luaproject)
 

@@ -44,6 +44,7 @@ public enum LuaTokenTypes {
     AS,             // as (类型转换)
     IS,             // is (类型检查)
     LAMBDA,         // lambda
+    LET,            // let
     LOCAL,          // local
     NIL,            // nil
     NOT,            // not

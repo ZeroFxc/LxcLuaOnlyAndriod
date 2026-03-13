@@ -220,6 +220,7 @@ Number = {DecNumber} | {HexNumber} | {BinNumber}
   "as"                      { return AS; }
   "is"                      { return IS; }
   "lambda"                  { return LAMBDA; }
+  "let"                     { return LET; }
   "local"                   { return LOCAL; }
   "nil"                     { return NIL; }
   "not"                     { return NOT; }

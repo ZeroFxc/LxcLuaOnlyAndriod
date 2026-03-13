@@ -17,7 +17,7 @@ public final class AutoCompletePackages {
     public static final List<String> DEFAULT_KEYWORDS = Arrays.asList(
             "and", "break", "case", "catch", "const", "continue", "default", "defer", "do",
             "else", "elseif", "end", "enum", "false", "finally", "for", "function", "global", "goto",
-            "if", "in", "keyword", "lambda", "local", "nil", "not", "operator", "or", "repeat", "return", "switch", "match",
+            "if", "in", "keyword", "lambda", "let", "local", "nil", "not", "operator", "or", "repeat", "return", "switch", "match",
             "then", "true", "try", "until", "when", "while", "is", "self", "__add", "__band",
             "__bnot", "__bor", "__bxor", "__call", "__close", "__concat", "__div", "__eq",
             "__gc", "__idiv", "__index", "__le", "__len", "__lt", "__mod", "__mul", "__newindex",

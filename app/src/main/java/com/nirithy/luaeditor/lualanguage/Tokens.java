@@ -28,6 +28,7 @@ public enum Tokens {
     IN,
     AS,             // as (类型转换)
     LOCAL,
+    LET,
     REPEAT,
     RETURN,
     BREAK,

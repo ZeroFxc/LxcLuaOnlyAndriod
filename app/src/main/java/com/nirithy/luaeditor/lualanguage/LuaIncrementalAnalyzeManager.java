@@ -225,7 +225,7 @@ public class LuaIncrementalAnalyzeManager
     private boolean isLuaKeyword(String word) {
         Set<String> keywords = new HashSet<>(Arrays.asList(
             "and", "break", "do", "else", "elseif", "end", "false", "for",
-            "function", "goto", "if", "in", "as", "local", "nil", "not", "or",
+            "function", "goto", "if", "in", "as", "let", "local", "nil", "not", "or",
             "repeat", "return", "then", "true", "until", "while", "async", "await", "export"
         ));
         return keywords.contains(word);
@@ -758,6 +758,7 @@ public class LuaIncrementalAnalyzeManager
             /* ---------- 1. 状态机：控制局部变量识别 ---------- */
             switch (token) {
                 case LOCAL:
+                case LET:
                     nextIsLocal = true;
                     inLocalDeclaration = true;
                     break;
@@ -929,6 +930,7 @@ public class LuaIncrementalAnalyzeManager
                     break;
 
                 case LOCAL:
+                case LET:
                     nextIsLocal = true;
                     classNamePrevious = false;
                     span =
