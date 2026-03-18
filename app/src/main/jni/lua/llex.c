@@ -30,7 +30,12 @@
 #include "lzio.h"
 #include "aes.h"
 #include "sha256.h"
+#include "lobfuscate.h"
 
+__attribute__((noinline))
+void llex_vmp_hook_point(void) {
+  VMP_MARKER(llex_vmp);
+}
 
 
 #define next(ls)	(ls->curpos++, ls->current = zgetc(ls->z))
@@ -865,7 +870,7 @@ static int readdecesc (LexState *ls) {
 }
 
 
-static void read_string (LexState *ls, int del, SemInfo *seminfo, int *has_interpolation) {
+static void read_string (LexState *ls, int del, SemInfo *seminfo, int *has_interpolation, int is_fstring) {
   save_and_next(ls);  /* keep delimiter (for error messages) */
   while (ls->current != del) {
     switch (ls->current) {
@@ -908,6 +913,36 @@ static void read_string (LexState *ls, int del, SemInfo *seminfo, int *has_inter
         }
         else {
           save(ls, '$');  /* 普通$符号（未跟{ 或 $） */
+        }
+        break;
+      }
+      case '{': {
+        if (is_fstring) {
+          next(ls);
+          if (ls->current == '{') {
+             save(ls, '{');
+             next(ls);
+          } else {
+             *has_interpolation = 1;
+             save(ls, '$');
+             save(ls, '{');
+             save(ls, '[');
+             int depth = 1;
+             while (depth > 0 && ls->current != EOZ) {
+               if (ls->current == '{') depth++;
+               else if (ls->current == '}') depth--;
+
+               if (depth > 0) {
+                   save_and_next(ls);
+               } else {
+                   save(ls, ']');
+                   save(ls, '}');
+                   next(ls);
+               }
+             }
+          }
+        } else {
+          save_and_next(ls);
         }
         break;
       }
@@ -1222,7 +1257,7 @@ static int llex (LexState *ls, SemInfo *seminfo) {
       }
       case '"': case '\'': {  /* short literal strings */
         int has_interpolation = 0;
-        read_string(ls, ls->current, seminfo, &has_interpolation);
+        read_string(ls, ls->current, seminfo, &has_interpolation, 0);
         if (has_interpolation) return TK_INTERPSTRING;
         else return TK_STRING;
       }
@@ -1259,6 +1294,17 @@ static int llex (LexState *ls, SemInfo *seminfo) {
           /* 检查是否是 _raw 原生字符串前缀 */
           size_t len = luaZ_bufflen(ls->buff);
           const char *buff = luaZ_buffer(ls->buff);
+
+          if (len == 1 && (buff[0] == 'f' || buff[0] == 'F')) {
+            if (ls->current == '"' || ls->current == '\'') {
+              int has_interpolation = 0;
+              luaZ_resetbuffer(ls->buff);
+              read_string(ls, ls->current, seminfo, &has_interpolation, 1);
+              if (has_interpolation) return TK_INTERPSTRING;
+              else return TK_STRING;
+            }
+          }
+
           if (len == 4 && 
               buff[0] == '_' && buff[1] == 'r' && buff[2] == 'a' && buff[3] == 'w') {
             /* 可能是原生字符串 _raw"..." 或 _raw[[...]] */
@@ -1323,6 +1369,7 @@ static int llex (LexState *ls, SemInfo *seminfo) {
 
 
 void luaX_next (LexState *ls) {
+  llex_vmp_hook_point();
   ls->lastline = ls->linenumber;
   ls->lasttoken = ls->t.token;
   ls->lastbuff = ls->buff;

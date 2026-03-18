@@ -31,6 +31,11 @@
 #include "sha256.h"
 #include "lobfuscate.h"
 
+__attribute__((noinline))
+void lundump_vmp_hook_point(void) {
+  VMP_MARKER(lundump_vmp);
+}
+
 
 #if !defined(luai_verifycode)
 #define luai_verifycode(L,f)  /* empty */
@@ -1239,6 +1244,7 @@ static void checkHeader (LoadState *S) {
 LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name, int force_standard) {
   LoadState S;
   LClosure *cl;
+  lundump_vmp_hook_point();
   if (*name == '@' || *name == '=')
     S.name = name + 1;
   else if (*name == LUA_SIGNATURE[0])

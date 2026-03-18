@@ -60,6 +60,11 @@
 #include "lbigint.h"
 #include "lauxlib.h"
 
+__attribute__((noinline))
+void lvm_vmp_hook_point(void) {
+  VMP_MARKER(lvm_vmp);
+}
+
 /* Helper functions for new opcodes */
 
 static int check_subtype_internal(lua_State *L, const TValue *val, const TValue *type_obj) {
@@ -2234,6 +2239,7 @@ void luaV_execute (lua_State *L, CallInfo *ci) {
   for (;;) {
     Instruction i;  /* instruction being executed */
     vmfetch();
+    lvm_vmp_hook_point();
     #if 0
     { /* low-level line tracing for debugging Lua */
       #include "lopnames.h"
