@@ -139,9 +139,10 @@ return
     title = res.string.font,
     key = "font_path",
     items = {
-      "Jetbrains Mono",
+      "NirithyNerdUltra",
+      "GeorgiaMono Italic",
       "Fira Code",
-      res.string.customize
+      "BookmanDisplay Italic",
     },
   },
   {--符号栏

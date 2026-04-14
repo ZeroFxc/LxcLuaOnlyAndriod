@@ -609,7 +609,7 @@ function _M.EditorFont()
   end
 
   -- 默认字体
-  local defaultFont = activity.getLuaDir("res/fonts/jetbrains_mono.ttf")
+  local defaultFont = activity.getLuaDir("res/fonts/NirithyNerdUltra.ttf")
   if safeSetFont(defaultFont) then
     activity.setSharedData("font_path2", defaultFont)
    else

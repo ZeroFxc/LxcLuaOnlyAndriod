@@ -187,18 +187,19 @@ local function onItemClick(view, views, key, data)
     end)
    elseif key == "font_path" then
     Simple_Pop(view, key, data.items, dp2px(62), function(i)
-      switch i
-       case 1
-        activity.setSharedData("font_path2", activity.getLuaDir("res/fonts/jetbrains_mono.ttf"))
-       case 2
+      switch i do
+       case 1:
+        activity.setSharedData("font_path2", activity.getLuaDir("res/fonts/NirithyNerdUltra.ttf"))
+break
+       case 2:
+        activity.setSharedData("font_path2", activity.getLuaDir("res/fonts/GeorgiaMono_Italic.ttf"))
+break
+       case 3:
         activity.setSharedData("font_path2", activity.getLuaDir("res/fonts/fira_code.ttf"))
-       case 3
-        activity.startActivityForResult(
-        Intent(Intent.ACTION_GET_CONTENT)
-        .setType("*/*")
-        .addCategory(Intent.CATEGORY_OPENABLE),
-        100
-        )
+break
+       case 4:
+        activity.setSharedData("font_path2", activity.getLuaDir("res/fonts/BookmanDisplay_Italic.ttf"))
+break
       end
     end)
   end
